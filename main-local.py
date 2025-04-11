@@ -1,12 +1,14 @@
 import streamlit as st
 import speech_recognition as sr
-from gtts import gTTS
-import os
+import pyttsx3
 from google import genai
 import threading
 
 # Inicializar el cliente de Gemini
 client = genai.Client(api_key="YOUR_API_KEY")
+
+# Inicializar el motor de texto a voz
+engine = pyttsx3.init()
 
 # Configuración de la página
 st.set_page_config(page_title="Chatbot de Voz", page_icon="🤖")
@@ -35,11 +37,10 @@ def capture_voice():
                 st.write("⚠️ Error al conectar con el servicio de reconocimiento de voz")  # Mensaje de error en la interfaz
                 return None
 
-# Función para convertir texto a voz usando gTTS
+# Función para convertir texto a voz
 def speak_text(text):
-    tts = gTTS(text=text, lang='es')
-    tts.save("temp.mp3")  # Guarda el archivo de audio
-    st.audio("temp.mp3", format='audio/mp3')  # Reproduce el audio en Streamlit
+    engine.say(text)
+    engine.runAndWait()
 
 # Función para manejar la conversación
 def conversation():
