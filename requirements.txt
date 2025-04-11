@@ -1,5 +1,3 @@
 streamlit
-SpeechRecognition
-pyttsx3
-gTTS
 google-genai
+python-dotenv

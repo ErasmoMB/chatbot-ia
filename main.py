@@ -1,74 +1,62 @@
 import streamlit as st
-import speech_recognition as sr
-from gtts import gTTS
-import os
 from google import genai
-import threading
+from dotenv import load_dotenv
+import os
+
+# Cargar variables de entorno desde el archivo .env
+load_dotenv()
 
 # Inicializar el cliente de Gemini
-client = genai.Client(api_key="YOUR_API_KEY")
+api_key = os.getenv("YOUR_API_KEY")  # Cargar la clave de API
+client = genai.Client(api_key=api_key)  # Usar la clave de API cargada
 
 # Configuración de la página
-st.set_page_config(page_title="Chatbot de Voz", page_icon="🤖")
+st.set_page_config(
+    page_title="Chatbot con Gemini",
+    page_icon="🗣️",
+    layout="centered"
+)
 
-# Título de la aplicación
-st.title("🤖 Chatbot de Voz")
+# Título y descripción
+st.title("🗣️ Chatbot")
+st.markdown("""
+Este chatbot está diseñado para interactuar con los usuarios utilizando el modelo Gemini.
+""")
 
-# Variable para controlar el estado del micrófono
-microphone_active = True
+# Inicializar el historial de chat
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-# Función para capturar y convertir voz a texto
-def capture_voice():
-    recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        while microphone_active:
-            st.write("🎤 Escuchando...")  # Mensaje en la interfaz
-            audio = recognizer.listen(source)
-            try:
-                text = recognizer.recognize_google(audio, language="es-ES")
-                st.write(f"📝 Texto: {text}")  # Mostrar texto en la interfaz
-                return text
-            except sr.UnknownValueError:
-                st.write("❌ No se pudo entender el audio")  # Mensaje de error en la interfaz
-                speak_text("No entendí lo que dijiste. Por favor, intenta de nuevo.")
-            except sr.RequestError:
-                st.write("⚠️ Error al conectar con el servicio de reconocimiento de voz")  # Mensaje de error en la interfaz
-                return None
+# Mostrar el historial de chat
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-# Función para convertir texto a voz usando gTTS
-def speak_text(text):
-    tts = gTTS(text=text, lang='es')
-    tts.save("temp.mp3")  # Guarda el archivo de audio
-    st.audio("temp.mp3", format='audio/mp3')  # Reproduce el audio en Streamlit
+# Input del usuario
+if prompt := st.chat_input("¿Qué te gustaría saber?"):
+    # Agregar mensaje del usuario al historial
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
-# Función para manejar la conversación
-def conversation():
-    while microphone_active:
-        user_input = capture_voice()
-        if user_input:
+    # Generar respuesta
+    with st.chat_message("assistant"):
+        message_placeholder = st.empty()
+        
+        try:
+            # Generar la respuesta usando Gemini
             response = client.models.generate_content(
                 model="gemini-2.0-flash",
-                contents=user_input
+                contents=prompt
             )
-            st.write(f"🤖 Respuesta: {response.text}")  # Mostrar respuesta en la interfaz
-            speak_text(response.text)
-
-# Botón para iniciar la conversación
-if st.button("🎤 Iniciar Captura de Voz"):
-    st.write("🎤 Iniciando captura de voz...")
-    threading.Thread(target=conversation).start()
-
-# Botón para silenciar el micrófono
-if st.button("🔇 Silenciar Micrófono"):
-    microphone_active = False
-    st.write("🔇 Micrófono silenciado. Presiona el botón para activar el micrófono.")
-
-# Botón para activar el micrófono
-if not microphone_active and st.button("🔊 Activar Micrófono"):
-    microphone_active = True
-    st.write("🔊 Micrófono activado. Presiona el botón para iniciar la captura de voz.")
-
-# Botón para finalizar la conversación
-if st.button("🛑 Finalizar Conversación"):
-    microphone_active = False
-    st.write("🛑 Conversación finalizada.")
+            response_text = response.text  # Asumiendo que el output tiene un atributo text
+            
+            # Mostrar la respuesta
+            message_placeholder.markdown(response_text)
+            
+            # Agregar la respuesta al historial
+            st.session_state.messages.append({"role": "assistant", "content": response_text})
+            
+        except Exception as e:
+            error_message = f"Error: {str(e)}"
+            message_placeholder.error(error_message)
